@@ -103,7 +103,7 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div class="field"><label for="pName">Prénom et nom</label><input type="text" id="pName" autocomplete="off" autocapitalize="words" placeholder="Prénom Nom"></div>
   <div class="field"><label for="pDob">Date de naissance</label><input type="date" id="pDob"></div>
   <div class="field"><label for="pDate">Date de l'ordonnance</label><input type="date" id="pDate"></div>
-  <p class="hint">Rien n'est enregistré : les informations du patient disparaissent dès que tu commences une nouvelle ordonnance.</p>
+  <p class="hint">Tu peux aussi dicter le patient en même temps que le traitement à l'étape suivante. Rien n'est enregistré : les informations du patient disparaissent dès que tu commences une nouvelle ordonnance.</p>
   <div class="row" style="margin-top:8px"><button class="btn primary" data-go="2">Dicter →</button></div>
 </section>
 
@@ -111,16 +111,21 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   <p class="eyebrow">Étape 2 sur 3</p>
   <h2>Dictée</h2>
   <div class="field"><label for="dict">Appuie dans la zone, puis sur le micro du clavier</label>
-    <textarea id="dict" placeholder="paracétamol un gramme trois fois par jour cinq jours, énoxaparine quarante milligrammes une injection par jour dix jours…"></textarea></div>
+    <textarea id="dict" placeholder="Madame Marie Dupont née le 12 mars 1965, paracétamol un gramme trois fois par jour pendant cinq jours, énoxaparine quarante milligrammes une injection par jour pendant dix jours…"></textarea></div>
   <div class="row"><button class="btn primary" id="micBtn"><span class="dot"></span>Dicter à la voix</button><button class="btn ghost" id="clearDict">Effacer</button></div>
-  <p class="hint" id="micMsg">Sépare les médicaments par une pause, une virgule, <code>puis</code>, <code>ensuite</code> ou <code>nouvelle ligne</code>. Tu peux aussi taper au clavier ou utiliser le micro du clavier.</p>
+  <p class="hint" id="micMsg">Commence par le patient — <code>Madame Marie Dupont née le 12 mars 1965</code> — puis enchaîne les traitements, séparés par une pause, une virgule, <code>puis</code> ou <code>ensuite</code>. Tout est vérifiable à l'étape suivante.</p>
   <div class="row" style="margin-top:14px"><button class="btn primary" id="parseBtn">Analyser →</button></div>
 </section>
 
 <section class="step" id="step3">
   <p class="eyebrow">Étape 3 sur 3</p>
   <h2>Ordonnance</h2>
-  <dl class="summary" id="sum"></dl>
+  <div class="summary">
+    <div class="seg" id="civ3" style="margin-bottom:10px"><button data-v="Madame">Madame</button><button data-v="Monsieur">Monsieur</button><button data-v="">Aucune</button></div>
+    <div class="field"><label for="pName3">Prénom et nom</label><input type="text" id="pName3" autocapitalize="words" placeholder="Prénom Nom"></div>
+    <div class="row"><div class="field" style="flex:1;min-width:140px"><label for="pDob3">Naissance</label><input type="date" id="pDob3"></div>
+    <div class="field" style="flex:1;min-width:140px"><label for="pDate3">Date</label><input type="date" id="pDate3"></div></div>
+  </div>
   <div id="flagNote" class="notice" hidden>Une ligne en orange n'a pas été reconnue dans le dictionnaire : vérifie l'orthographe avant d'envoyer.</div>
   <ul class="lines" id="lines"></ul>
   <div class="row" style="margin:12px 0 18px"><button class="btn ghost" id="addLine">+ Ajouter une ligne</button></div>
@@ -351,10 +356,57 @@ function formatLine(drug,body){
   return b? `${drug}, ${b}` : drug;
 }
 
+/* ---------- Patient dicté ---------- */
+const MOIS={janvier:1,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,aout:8,septembre:9,octobre:10,novembre:11,decembre:12};
+const NW={zero:0,un:1,une:1,premier:1,deux:2,trois:3,quatre:4,cinq:5,six:6,sept:7,huit:8,neuf:9,dix:10,onze:11,douze:12,treize:13,quatorze:14,quinze:15,seize:16,vingt:20,trente:30,quarante:40,cinquante:50,soixante:60,quatrevingt:80,cent:100,mille:1000};
+function frNum(s){
+  let t=norm(s).replace(/[-]/g,' ').replace(/\bquatre\s+vingts?\b/g,'quatrevingt').replace(/\bet\b/g,' ').trim();
+  if(!t)return null;
+  if(/^\d+$/.test(t))return parseInt(t,10);
+  const w=t.split(/\s+/);let tot=0,cur=0,seen=false;
+  for(const x of w){const v=NW[x];if(v==null)return null;seen=true;
+    if(v===100)cur=(cur||1)*100;
+    else if(v===1000){tot+=(cur||1)*1000;cur=0}
+    else cur+=v}
+  return seen?tot+cur:null;
+}
+function parseFrDate(raw){
+  if(!raw)return'';
+  const s=norm(raw).replace(/\ble\b/g,' ').replace(/[\/.-]/g,' ').replace(/\s+/g,' ').trim();
+  let m=s.match(/^(\d{1,2})\s+(\d{1,2})\s+(\d{2,4})$/);
+  if(m)return iso(+m[1],+m[2],+m[3]);
+  const w=s.split(' '),keys=Object.keys(MOIS);
+  let mi=-1,mo=0;
+  for(let i=0;i<w.length;i++){
+    const t=w[i];if(t.length<3)continue;
+    const k=keys.find(k=>k===t||(k.startsWith(t.slice(0,Math.min(4,t.length)))&&Math.abs(k.length-t.length)<=3));
+    if(k){mi=i;mo=MOIS[k];break}
+  }
+  if(mi>0&&mo){const d=frNum(w.slice(0,mi).join(' ')),y=frNum(w.slice(mi+1).join(' '));if(d&&y)return iso(d,mo,y)}
+  return'';
+}
+function iso(d,mo,y){
+  if(y<100)y+=y>30?1900:2000;
+  if(!(d>=1&&d<=31&&mo>=1&&mo<=12&&y>=1900&&y<=2100))return'';
+  return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+function capName(s){return s.trim().replace(/\s+/g,' ').split(' ').map(w=>w.length>2&&w===w.toUpperCase()?w:w.charAt(0).toUpperCase()+w.slice(1)).join(' ')}
+function parsePatient(txt){
+  const isM=c=>/^(mr|monsieur|m)$/i.test(c.replace(/\.$/,''));
+  let m=txt.match(/^\s*(madame|mme|mademoiselle|monsieur|mr|m)\.?\s+([^,;.]{2,60}?)\s*,?\s*n[\u00e9e]{1,2}e?\s+le\s+([^,;.]{3,70})/i);
+  if(m)return{civ:isM(m[1])?'Monsieur':'Madame',name:capName(m[2]),dob:parseFrDate(m[3]),rest:txt.slice(m.index+m[0].length).replace(/^[\s,;.]+/,'')};
+  m=txt.match(/^\s*([^,;.]{2,60}?)\s*,?\s*n[\u00e9e]{1,2}e?\s+le\s+([^,;.]{3,70})/i);
+  if(m)return{civ:null,name:capName(m[1]),dob:parseFrDate(m[2]),rest:txt.slice(m.index+m[0].length).replace(/^[\s,;.]+/,'')};
+  m=txt.match(/^\s*(madame|mme|mademoiselle|monsieur|mr)\.?\s+([A-Za-z\u00c0-\u00ff'\- ]{2,60}?)\s*[,;.]/i);
+  if(m)return{civ:isM(m[1])?'Monsieur':'Madame',name:capName(m[2]),dob:'',rest:txt.slice(m.index+m[0].length).replace(/^[\s,;.]+/,'')};
+  return null;
+}
+function setCiv(v){state.civ=v;$('#civ').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===v))}
+
 /* ---------- UI ---------- */
 function go(n){document.querySelectorAll('section.step').forEach(s=>s.classList.toggle('active',s.id==='step'+n));document.querySelectorAll('.tabbar button').forEach(b=>b.toggleAttribute('aria-current',b.dataset.go==String(n)));window.scrollTo(0,0);if(n===3)renderSummary()}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(+b.dataset.go)));
-$('#civ').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.civ=b.dataset.v;$('#civ').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
+$('#civ').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;setCiv(t.dataset.v)});
 $('#pDate').value=todayIso();
 $('#clearDict').onclick=()=>{stopRec();$('#dict').value='';$('#dict').focus()};
 /* --- dictée vocale --- */
@@ -378,17 +430,27 @@ function startRec(){
   catch(e){micMsg('Dictée indisponible : '+e.message)}
 }
 $('#micBtn').onclick=()=>{wantRec?stopRec():startRec()};
-$('#parseBtn').onclick=()=>{stopRec();const txt=$('#dict').value.trim(); if(txt){state.lines=parseDictation(txt)} renderLines(); go(3)};
-function renderSummary(){const n=$('#pName').value.trim();$('#sum').innerHTML=`<dt>Patient</dt><dd>${[state.civ,n].filter(Boolean).join(' ')||'<em>non renseigné</em>'}${$('#pDob').value?' — né(e) le '+frDob($('#pDob').value):''}</dd><dt>Date</dt><dd>${cap(frDate($('#pDate').value))}</dd><dt>Modèle</dt><dd>${templates[settings.tpl]?.name||''}</dd>`}
+$('#parseBtn').onclick=()=>{stopRec();let txt=$('#dict').value.trim();let got=null;
+  if(txt){const pt=parsePatient(txt);
+    if(pt){got=pt;if(pt.civ)setCiv(pt.civ);if(pt.name)$('#pName').value=pt.name;if(pt.dob)$('#pDob').value=pt.dob;txt=pt.rest}
+    state.lines=txt?parseDictation(txt):[]}
+  renderLines();go(3);
+  $('#genMsg').textContent=got?(got.dob?'Patient et date de naissance repris de la dictée — vérifie l’orthographe du nom.':'Nom repris de la dictée — vérifie l’orthographe et complète la date de naissance.'):'';};
+function renderSummary(){$('#pName3').value=$('#pName').value;$('#pDob3').value=$('#pDob').value;$('#pDate3').value=$('#pDate').value;$('#civ3').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.v===state.civ))}
+$('#pName3').addEventListener('input',()=>{$('#pName').value=$('#pName3').value;invalidatePdf()});
+$('#pDob3').addEventListener('change',()=>{$('#pDob').value=$('#pDob3').value;invalidatePdf()});
+$('#pDate3').addEventListener('change',()=>{$('#pDate').value=$('#pDate3').value;invalidatePdf()});
+$('#civ3').addEventListener('click',e=>{const t=e.target.closest('button');if(!t)return;setCiv(t.dataset.v);$('#civ3').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===t));invalidatePdf()});
+function invalidatePdf(){state.pdfBytes=null;$('#shareBtn').disabled=true;$('#prev').hidden=true;$('#genMsg').textContent=''}
 function renderLines(){
   const ul=$('#lines'); ul.innerHTML='';
   state.lines.forEach((l,i)=>{const li=document.createElement('li');li.className='line'+(l.known?'':' flag');li.innerHTML=`<span class="num">${i+1}${l.known?'':' · à vérifier'}</span><textarea rows="2"></textarea><button class="del" aria-label="Supprimer la ligne">×</button>`;const ta=li.querySelector('textarea');ta.value=l.text;ta.addEventListener('input',()=>{l.text=ta.value;autosize(ta)});autosize(ta);li.querySelector('.del').onclick=()=>{state.lines.splice(i,1);renderLines()};ul.appendChild(li)});
   $('#flagNote').hidden=!state.lines.some(l=>!l.known);
-  state.pdfBytes=null;$('#shareBtn').disabled=true;$('#prev').hidden=true;$('#genMsg').textContent='';
+  state.pdfBytes=null;$('#shareBtn').disabled=true;$('#prev').hidden=true;
 }
 function autosize(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px'}
 $('#addLine').onclick=()=>{state.lines.push({text:'',known:true});renderLines();const tas=$('#lines').querySelectorAll('textarea');tas[tas.length-1].focus()};
-$('#newBtn').onclick=()=>{if(!confirm('Effacer le patient et les lignes ?'))return;state.lines=[];$('#pName').value='';$('#pDob').value='';$('#pDate').value=todayIso();$('#dict').value='';state.civ='Madame';$('#civ').querySelectorAll('button').forEach((x,i)=>x.setAttribute('aria-pressed',i===0));renderLines();go(1)};
+$('#newBtn').onclick=()=>{if(!confirm('Effacer le patient et les lignes ?'))return;$('#genMsg').textContent='';state.lines=[];$('#pName').value='';$('#pDob').value='';$('#pDate').value=todayIso();$('#dict').value='';state.civ='Madame';$('#civ').querySelectorAll('button').forEach((x,i)=>x.setAttribute('aria-pressed',i===0));renderLines();go(1)};
 
 /* ---------- PDF ---------- */
 const WIN = s=>s.replace(/\u0153/g,'oe').replace(/\u0152/g,'OE').replace(/[\u2010-\u2012]/g,'-').replace(/\u00d7/g,'x').replace(/[^\x20-\xFF\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u20AC]/g,'?');
