@@ -54,6 +54,11 @@ textarea{min-height:150px;resize:vertical;line-height:1.5}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.ghost{background:none}
 .btn:disabled{opacity:.5}
+.dot{width:9px;height:9px;border-radius:50%;background:currentColor;display:inline-block;margin-right:8px;opacity:.45;vertical-align:middle}
+.btn.rec{background:#B3261E;border-color:#B3261E;color:#fff}
+.btn.rec .dot{opacity:1;background:#fff}
+@media (prefers-reduced-motion:no-preference){.btn.rec .dot{animation:pulse 1.1s infinite ease-in-out}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .notice{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 14px}
 .summary{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:15px}
 .summary dt{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:8px}
@@ -107,8 +112,9 @@ hr{border:0;border-top:1px solid var(--line);margin:18px 0}
   <h2>Dictée</h2>
   <div class="field"><label for="dict">Appuie dans la zone, puis sur le micro du clavier</label>
     <textarea id="dict" placeholder="paracétamol un gramme trois fois par jour cinq jours, énoxaparine quarante milligrammes une injection par jour dix jours…"></textarea></div>
-  <p class="hint">Sépare les médicaments par une pause, une virgule, <code>puis</code>, <code>ensuite</code> ou <code>nouvelle ligne</code>. Les noms sont reconnus et corrigés d'après le dictionnaire, tout reste modifiable à l'étape suivante.</p>
-  <div class="row" style="margin-top:12px"><button class="btn primary" id="parseBtn">Analyser →</button><button class="btn ghost" id="clearDict">Effacer</button></div>
+  <div class="row"><button class="btn primary" id="micBtn"><span class="dot"></span>Dicter à la voix</button><button class="btn ghost" id="clearDict">Effacer</button></div>
+  <p class="hint" id="micMsg">Sépare les médicaments par une pause, une virgule, <code>puis</code>, <code>ensuite</code> ou <code>nouvelle ligne</code>. Tu peux aussi taper au clavier ou utiliser le micro du clavier.</p>
+  <div class="row" style="margin-top:14px"><button class="btn primary" id="parseBtn">Analyser →</button></div>
 </section>
 
 <section class="step" id="step3">
@@ -189,10 +195,51 @@ const BASE_DRUGS = [
  ["Zopiclone",["imovane"]],["Hydroxyzine",["atarax","hydroxyzine"]],["Alprazolam",["xanax"]],["Oxazépam",["seresta"]],
  ["Chlorhexidine",["chlorhexidine","hibiscrub","betadine","povidone iodee"]],["Compresses stériles",["compresses"]],["Sérum physiologique",["serum physiologique"]],["Pansement",["pansement","mepilex","tegaderm","urgotul"]],["Bas de contention",["bas de contention","chaussettes de contention"]],
  ["Nutrition entérale",["nutrition enterale"]],["Compléments nutritionnels oraux",["fortimel","clinutren","complements nutritionnels","cno"]],["Soins infirmiers à domicile",["soins infirmiers","ide a domicile","infirmiere a domicile"]],
+ ["Lévothyroxine",["levothyrox","levothyroxine","l thyroxine","euthyrox","tcaps","thyrofix","levotyrox"]],
+ ["Amiodarone",["cordarone","amiodarone"]],["Atorvastatine",["tahor","atorvastatine"]],["Rosuvastatine",["crestor","rosuvastatine"]],["Simvastatine",["zocor","simvastatine"]],["Pravastatine",["elisor","pravastatine"]],["Ézétimibe",["ezetrol","ezetimibe"]],
+ ["Aspirine",["kardegic","aspegic","aspirine","acide acetylsalicylique"]],["Clopidogrel",["plavix","clopidogrel"]],["Ticagrelor",["brilique","ticagrelor"]],
+ ["Fluindione",["previscan","fluindione"]],["Warfarine",["coumadine","warfarine"]],["Acénocoumarol",["sintrom","acenocoumarol"]],["Dabigatran",["pradaxa","dabigatran"]],
+ ["Losartan",["cozaar","losartan"]],["Valsartan",["tareg","valsartan"]],["Irbésartan",["aprovel","irbesartan"]],["Candésartan",["atacand","candesartan"]],["Périndopril",["coversyl","perindopril"]],["Énalapril",["renitec","enalapril"]],["Lisinopril",["zestril","lisinopril"]],
+ ["Aténolol",["tenormine","atenolol"]],["Métoprolol",["lopressor","seloken","metoprolol"]],["Nébivolol",["temerit","nebivolol"]],["Hydrochlorothiazide",["esidrex","hydrochlorothiazide"]],["Diltiazem",["tildiem","diltiazem"]],["Vérapamil",["isoptine","verapamil"]],["Nicardipine",["loxen","nicardipine"]],["Torasémide",["torasemide"]],["Digoxine",["digoxine","hemigoxine"]],
+ ["Allopurinol",["zyloric","allopurinol"]],["Colchicine",["colchicine","colchimax"]],
+ ["Gliclazide",["diamicron","gliclazide"]],["Sitagliptine",["januvia","sitagliptine"]],["Dapagliflozine",["forxiga","dapagliflozine"]],["Empagliflozine",["jardiance","empagliflozine"]],["Répaglinide",["novonorm","repaglinide"]],
+ ["Lévétiracétam",["keppra","levetiracetam"]],["Gabapentine",["neurontin","gabapentine"]],["Prégabaline",["lyrica","pregabaline"]],["Amitriptyline",["laroxyl","amitriptyline"]],["Duloxétine",["cymbalta","duloxetine"]],
+ ["Escitalopram",["seroplex","escitalopram"]],["Sertraline",["zoloft","sertraline"]],["Paroxétine",["deroxat","paroxetine"]],["Fluoxétine",["prozac","fluoxetine"]],["Venlafaxine",["effexor","venlafaxine"]],["Mirtazapine",["norset","mirtazapine"]],
+ ["Zolpidem",["stilnox","zolpidem"]],["Bromazépam",["lexomil","bromazepam"]],["Lorazépam",["temesta","lorazepam"]],["Diazépam",["valium","diazepam"]],["Clonazépam",["rivotril","clonazepam"]],["Prazépam",["lysanxia","prazepam"]],
+ ["Quétiapine",["xeroquel","quetiapine"]],["Rispéridone",["risperdal","risperidone"]],["Olanzapine",["zyprexa","olanzapine"]],["Halopéridol",["haldol","haloperidol"]],["Cyamémazine",["tercian","cyamemazine"]],["Loxapine",["loxapac","loxapine"]],["Lévomépromazine",["nozinan","levomepromazine"]],
+ ["Salbutamol",["ventoline","salbutamol"]],["Budésonide",["pulmicort","entocort","mikicort","budesonide"]],["Tiotropium",["spiriva","tiotropium"]],["Fluticasone-salmétérol",["seretide"]],["Budésonide-formotérol",["symbicort"]],
+ ["Mésalazine",["pentasa","fivasa","rowasa","mesalazine"]],["Azathioprine",["imurel","azathioprine"]],["Infliximab",["remicade","inflectra","infliximab"]],["Adalimumab",["humira","adalimumab"]],["Védolizumab",["entyvio","vedolizumab"]],["Ustékinumab",["stelara","ustekinumab"]],
+ ["Bétaméthasone",["celestene","betamethasone"]],["Méthylprednisolone",["solumedrol","medrol","methylprednisolone"]],["Hydrocortisone",["hydrocortisone"]],
+ ["Ceftriaxone",["rocephine","ceftriaxone"]],["Céfazoline",["cefazoline"]],["Céfotaxime",["claforan","cefotaxime"]],["Pipéracilline-tazobactam",["tazocilline","piperacilline tazobactam"]],["Imipénème",["tienam","imipeneme"]],["Méropénème",["meropeneme","meronem"]],["Ertapénème",["invanz","ertapeneme"]],
+ ["Vancomycine",["vancomycine"]],["Gentamicine",["gentamicine","gentalline"]],["Amikacine",["amikacine","amiklin"]],["Doxycycline",["vibramycine","tolexine","doxycycline"]],["Azithromycine",["zithromax","azithromycine"]],["Clarithromycine",["zeclar","clarithromycine"]],["Spiramycine",["rovamycine","spiramycine"]],
+ ["Nitrofurantoïne",["furadantine","nitrofurantoine"]],["Fosfomycine",["monuril","fosfomycine"]],["Céfuroxime",["zinnat","cefuroxime"]],["Céfpodoxime",["orelox","cefpodoxime"]],
+ ["Aciclovir",["zovirax","aciclovir"]],["Valaciclovir",["zelitrex","valaciclovir"]],["Oseltamivir",["tamiflu","oseltamivir"]],["Caspofungine",["cancidas","caspofungine"]],["Voriconazole",["vfend","voriconazole"]],
+ ["Ivermectine",["stromectol","ivermectine"]],["Albendazole",["zentel","albendazole"]],
+ ["Métopimazine",["vogalene","metopimazine"]],["Aprépitant",["emend","aprepitant"]],["Alizapride",["plitican","alizapride"]],
+ ["Octréotide",["sandostatine","octreotide"]],["Terlipressine",["glypressine","terlipressine"]],
+ ["Sucralfate",["ulcar","sucralfate"]],["Alginate de sodium",["gaviscon"]],["Hydroxyde d aluminium",["maalox"]],
+ ["Mébévérine",["duspatalin","mebeverine"]],["Pinavérium",["dicetel","pinaverium"]],["Siméthicone",["polysilane","simethicone"]],["Ispaghul",["spagulax","psyllium","transilane","ispaghul"]],["Sorbitol",["sorbitol"]],["Normacol",["normacol"]],["Microlax",["microlax","eductyl"]],
+ ["Préparation colique",["moviprep","fortrans","colopeg","izinova","picoprep","colokit","preparation colique"]],
+ ["Acide tranexamique",["exacyl","acide tranexamique"]],["Naloxone",["narcan","naloxone"]],["Nalbuphine",["nubain","nalbuphine"]],
+ ["Cétirizine",["zyrtec","cetirizine"]],["Desloratadine",["aerius","desloratadine"]],["Loratadine",["clarityne","loratadine"]],["Dexchlorphéniramine",["polaramine"]],["Bétahistine",["betaserc","betahistine"]],
+ ["Chlorure de potassium",["diffu k","kaleorid","chlorure de potassium","potassium"]],["Magnésium",["magnesium","magne b6"]],["Calcium",["orocal","calcium"]],["Polystyrène sulfonate",["kayexalate","resonium"]],
+ ["Alendronate",["fosamax","alendronate"]],["Dénosumab",["prolia","denosumab"]],
+ ["Tamsulosine",["josir","omix","tamsulosine"]],["Finastéride",["finasteride"]],["Oxybutynine",["ditropan","oxybutynine"]],
+ ["Carboxymaltose ferrique",["ferinject","venofer","fer injectable"]],["Darbépoétine",["aranesp","eprex"]],["Filgrastim",["neupogen","granocyte","filgrastim"]],
+ ["Rifampicine",["rifadine","rifampicine"]],["Isoniazide",["rimifon","isoniazide"]],["Éthambutol",["myambutol","ethambutol"]],["Pyrazinamide",["pirilene","pyrazinamide"]],
+ ["Thiamine (vitamine B1)",["benerva","thiamine","vitamine b1"]],["Pyridoxine (vitamine B6)",["becilan","pyridoxine","vitamine b6"]],
+ ["Poche et support de stomie",["poche de stomie","poches de stomie","materiel de stomie","support de stomie","stomie"]],
+ ["Soins de stomie par infirmier",["soins de stomie"]],
+ ["Ablation des fils",["ablation des fils","ablation des agrafes","retrait des fils"]],
+ ["Pansements par infirmier à domicile",["pansement par infirmier","pansements infirmier","refection de pansement"]],
+ ["Scanner abdomino-pelvien",["scanner abdomino pelvien","tdm abdomino pelvienne","scanner abdominal"]],
+ ["Échographie abdominale",["echographie abdominale","echographie"]],
+ ["Bilan biologique",["bilan biologique","numeration","nfs plaquettes","ionogramme","bilan hepatique","crp","tp tca","inr"]],
+ ["Consultation de contrôle",["consultation de controle","consultation post operatoire"]],
  ["Arrêt de travail",["arret de travail"]],["Kinésithérapie",["kinesitherapie","kine"]],["Prise de sang",["prise de sang","bilan sanguin","nfs"]]
 ];
 const NUMWORDS = {"zero":0,"un":1,"une":1,"deux":2,"trois":3,"quatre":4,"cinq":5,"six":6,"sept":7,"huit":8,"neuf":9,"dix":10,"onze":11,"douze":12,"treize":13,"quatorze":14,"quinze":15,"seize":16,"vingt":20,"trente":30,"quarante":40,"cinquante":50,"soixante":60,"cent":100,"mille":1000};
-const UNITS = [[/\bmilligrammes?\b/g,"mg"],[/\bmicrogrammes?\b/g,"µg"],[/\bgrammes?\b/g,"g"],[/\bmillilitres?\b/g,"mL"],[/\bunites? internationales?\b/g,"UI"],[/\bpour ?cent\b/g,"%"]];
+const UNITS = [[/\bmilligrammes?\b/g,"mg"],[/\bmicro ?grammes?\b/g,"\u00b5g"],[/\bgrammes?\b/g,"g"],[/\bmillilitres?\b/g,"mL"],[/\bcentilitres?\b/g,"cL"],[/\bunites? internationales?\b/g,"UI"],[/\bpour ?cent\b/g,"%"],[/\bmcg\b/g,"\u00b5g"],[/\bugs?\b/g,"\u00b5g"],[/\b\u00b5\s*g\b/g,"\u00b5g"],[/\bmilli ?grammes?\b/g,"mg"],[/\bml\b/g,"mL"],[/\bui\b/g,"UI"]];
 
 /* ---------- État local ---------- */
 const store = {get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
@@ -204,7 +251,7 @@ let state = {civ:'Madame', lines:[], pdfBytes:null, fileName:''};
 
 /* ---------- Utilitaires ---------- */
 const $ = s=>document.querySelector(s);
-const norm = s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,' ').replace(/[^a-z0-9%\/\n\s.,-]/g,' ');
+const norm = s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,' ').replace(/[^a-z0-9%\u00b5\/\n\s.,-]/g,' ');
 function lev(a,b){const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let p=[...Array(n+1).keys()];for(let i=1;i<=m;i++){let c=[i];for(let j=1;j<=n;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1))}p=c}return p[n]}
 function frDate(iso){if(!iso)return'';const d=new Date(iso+'T12:00:00');return d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}
 function frDob(iso){if(!iso)return'';const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`}
@@ -260,7 +307,9 @@ function formatLine(drug,body){
   UNITS.forEach(([re,u])=>b=b.replace(re,u));
   b=b.replace(/(\d)\s+(mg|g|µg|mL|UI|%)\b/g,'$1 $2').replace(/\b(\d+)\s*(mg|g|µg)\s*(?:par|\/)\s*(\d+)\s*(mg|g|µg|mL)\b/g,'$1 $2/$3 $4');
   b=b.replace(/\b(\d+) x (\d+)\b/g,'$1 × $2').replace(/\bfois par jour\b/g,'fois par jour').replace(/\bpar jours\b/g,'par jour');
-  b=b.replace(/\b1 (comprimes|gelules|sachets|injections|ampoules|cuilleres|doses|boites|semaines|mois|jours|fois)\b/g,(m,w)=>'1 '+w.replace(/s$/,''));
+  b=b.replace(/\b1 (comprimes|gelules|sachets|injections|ampoules|cuilleres|doses|boites|semaines|jours|fois|flacons|patchs|suppositoires)\b/g,(m,w)=>'1 '+w.replace(/s$/,''));
+  b=b.replace(/\ba (?=(j\s?\d|jeun|domicile|partir|renouveler|adapter|raison|vie|la demande|volonte))/g,'\u00e0 ');
+  b=b.replace(/\bj (\d)/g,'J$1').replace(/\bj(\d)/g,'J$1');
   b=b.replace(/\bcomprime/g,'comprimé').replace(/\bgelule/g,'gélule').replace(/\bcuillere/g,'cuillère').replace(/\ba cafe\b/g,'à café').replace(/\ba soupe\b/g,'à soupe').replace(/\bboite/g,'boîte').replace(/\bmatin midi (et )?soir\b/g,'matin, midi et soir').replace(/\bmatin (et )?soir\b/g,'matin et soir').replace(/\ba jeun\b/g,'à jeun').replace(/\bsous ?cutane/g,'sous-cutané').replace(/\bpar voie orale\b/g,'per os').replace(/\bsi besoin\b/g,'si besoin').replace(/\bmaximum\b/g,'maximum').replace(/\ba renouveler\b/g,'à renouveler').replace(/\bqsp\b/g,'QSP').replace(/\b(\d+) h\b/g,'$1 heures');
   b=b.replace(/\s+/g,' ').trim().replace(/^(de|du|des|d) /,'');
   if(!drug) return cap(b);
@@ -274,8 +323,29 @@ function go(n){document.querySelectorAll('section.step').forEach(s=>s.classList.
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(+b.dataset.go)));
 $('#civ').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;state.civ=b.dataset.v;$('#civ').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b))});
 $('#pDate').value=todayIso();
-$('#clearDict').onclick=()=>{$('#dict').value='';$('#dict').focus()};
-$('#parseBtn').onclick=()=>{const txt=$('#dict').value.trim(); if(txt){state.lines=parseDictation(txt)} renderLines(); go(3)};
+$('#clearDict').onclick=()=>{stopRec();$('#dict').value='';$('#dict').focus()};
+/* --- dictée vocale --- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,wantRec=false,baseText='';
+function micMsg(t){$('#micMsg').textContent=t}
+function setRecUI(on){const b=$('#micBtn');b.classList.toggle('rec',on);b.lastChild.nodeValue=on?'Arrêter la dictée':'Dicter à la voix'}
+function stopRec(){wantRec=false;try{rec&&rec.stop()}catch(e){}setRecUI(false)}
+function startRec(){
+  if(!SR){micMsg("La dictée intégrée n'est pas disponible dans ce navigateur : touche la zone de texte puis le micro du clavier iPhone.");return}
+  try{rec=new SR()}catch(e){micMsg('Dictée indisponible : '+e.message);return}
+  rec.lang='fr-FR';rec.continuous=true;rec.interimResults=true;
+  baseText=$('#dict').value?$('#dict').value.replace(/\s+$/,'')+' ':'';
+  rec.onresult=e=>{let fin='',int='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)fin+=t+' ';else int+=t}
+    if(fin)baseText+=fin;const d=$('#dict');d.value=baseText+int;d.scrollTop=d.scrollHeight};
+  rec.onerror=ev=>{if(ev.error==='no-speech')return;
+    const m={'not-allowed':"Micro refusé. Autorise le microphone pour ce site (Réglages → Safari → Microphone), ou utilise le micro du clavier.",'service-not-allowed':"La dictée est bloquée sur cet appareil.",'audio-capture':"Aucun micro détecté.",'network':"La dictée a besoin d'une connexion réseau."}[ev.error];
+    wantRec=false;setRecUI(false);micMsg(m||('Erreur de dictée : '+ev.error))};
+  rec.onend=()=>{if(wantRec){try{rec.start()}catch(e){wantRec=false;setRecUI(false)}}else setRecUI(false)};
+  try{rec.start();wantRec=true;setRecUI(true);micMsg('Dictée en cours — parle normalement, puis touche « Arrêter la dictée ».')}
+  catch(e){micMsg('Dictée indisponible : '+e.message)}
+}
+$('#micBtn').onclick=()=>{wantRec?stopRec():startRec()};
+$('#parseBtn').onclick=()=>{stopRec();const txt=$('#dict').value.trim(); if(txt){state.lines=parseDictation(txt)} renderLines(); go(3)};
 function renderSummary(){const n=$('#pName').value.trim();$('#sum').innerHTML=`<dt>Patient</dt><dd>${[state.civ,n].filter(Boolean).join(' ')||'<em>non renseigné</em>'}${$('#pDob').value?' — né(e) le '+frDob($('#pDob').value):''}</dd><dt>Date</dt><dd>${cap(frDate($('#pDate').value))}</dd><dt>Modèle</dt><dd>${templates[settings.tpl]?.name||''}</dd>`}
 function renderLines(){
   const ul=$('#lines'); ul.innerHTML='';
